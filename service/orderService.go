@@ -5,9 +5,9 @@ import (
 )
 
 type OrderService interface {
-	Save(order *model.OrderRequestModel) (*model.OrderDBResponseModel, error)
-	Update(order *model.OrderRequestModel) (*model.OrderDBResponseModel, error)
-	FindAll(user model.UserDBResponseModel) ([]model.OrderDBResponseModel, error)
-	Cancel(id string) (*model.OrderDBResponseModel, error)
-	FindOneById(string) (*model.OrderDBResponseModel, error)
+	Save(order *model.Order) (*model.Order, error)
+	Update(order *model.Order) (*model.Order, error)
+	FindAll(userId string) ([]model.Order, error)
+	Cancel(id string) (*model.Order, error)
+	FindOneById(string) (*model.Order, error)
 }

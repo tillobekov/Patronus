@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Patronus/blockchain"
 	"Patronus/config"
 	"Patronus/controller"
 	"Patronus/model"
@@ -32,12 +33,12 @@ var (
 	mongoclient *mongo.Client
 	redisclient *redis.Client
 
-	userService       service.UserService
-	authService       service.AuthService
-	orderService      service.OrderService
-	coinService       service.CoinService
-	limitOrderService service.LimitOrderService
-	walletService     service.WalletService
+	userService  service.UserService
+	authService  service.AuthService
+	orderService service.OrderService
+	coinService  service.CoinService
+	//limitOrderService service.LimitOrderService
+	walletService service.WalletService
 
 	UserController  controller.UserController
 	AuthController  controller.AuthController
@@ -49,11 +50,13 @@ var (
 	OrderRouteController routes.OrderRouteController
 	CoinRouteController  routes.CoinRouteController
 
-	authCollection       *mongo.Collection
-	orderCollection      *mongo.Collection
-	coinCollection       *mongo.Collection
-	limitOrderCollection *mongo.Collection
-	walletCollection     *mongo.Collection
+	authCollection  *mongo.Collection
+	orderCollection *mongo.Collection
+	coinCollection  *mongo.Collection
+	//limitOrderCollection *mongo.Collection
+
+	walletCollection *mongo.Collection
+	managerSet       blockchain.ManagerSet
 
 	Exchange model.Exchange
 )
@@ -108,8 +111,8 @@ func init() {
 	UserRouteController = routes.NewRouteUserController(UserController)
 
 	Exchange = *model.NewExchange()
-	limitOrderCollection = mongoclient.Database(databaseName).Collection("limitOrders")
-	limitOrderService = impl3.NewLimitOrderServiceImpl(limitOrderCollection, ctx)
+	//limitOrderCollection = mongoclient.Database(databaseName).Collection("limitOrders")
+	//limitOrderService = impl3.NewLimitOrderServiceImpl(limitOrderCollection, ctx)
 
 	walletCollection = mongoclient.Database(databaseName).Collection("wallets")
 	walletService = impl3.NewWalletServiceImpl(walletCollection, ctx)
@@ -122,6 +125,11 @@ func init() {
 	coinService = impl3.NewCoinServiceImpl(coinCollection, ctx)
 	CoinController = controller.NewCoinController(coinService, Exchange)
 	CoinRouteController = routes.NewCoinRouteController(CoinController)
+
+	managerSet = blockchain.NewManagerSet()
+
+	ethManager := blockchain.NewEthereumManager("HTTP://127.0.0.1:8545")
+	managerSet.AddManager(&ethManager, "ETH")
 
 	server = gin.Default()
 }
@@ -162,5 +170,6 @@ func main() {
 	UserRouteController.UserRoute(router, userService)
 	OrderRouteController.OrderRoute(router, userService)
 	CoinRouteController.MarketRoute(router, userService)
+
 	log.Fatal(server.Run(":" + config.Port))
 }

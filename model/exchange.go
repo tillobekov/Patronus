@@ -1,12 +1,12 @@
 package model
 
 type Exchange struct {
-	OrderBooks map[CoinSymbol]*OrderBook `json:"orderBooks" bson:"orderBooks"`
+	OrderBooks map[string]*OrderBook `json:"orderBooks" bson:"orderBooks"`
 }
 
 func NewExchange() *Exchange {
 
-	orderBooks := make(map[CoinSymbol]*OrderBook)
+	orderBooks := make(map[string]*OrderBook)
 	orderBooks[CoinETH] = NewOrderBook()
 
 	return &Exchange{

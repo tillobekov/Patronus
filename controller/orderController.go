@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"Patronus/blockchain"
 	"Patronus/model"
 	"Patronus/service"
 	"Patronus/util"
@@ -18,61 +19,55 @@ func NewOrderController(orderService service.OrderService, walletService service
 	return OrderController{orderService, walletService, exchange}
 }
 
-func (oc *OrderController) updateFilledOrders(filledOrders []*model.Order, orderFromOB *model.Order, coin model.CoinSymbol) (*model.OrderDBResponseModel, error) {
-	var order model.OrderRequestModel
+func (oc *OrderController) updateFilledOrders(filledOrders []*model.Order, order *model.Order) (*model.Order, error) {
 	for _, o := range filledOrders {
-		tempOrder := model.OrderRequestModel{
-			ID:     o.ID,
-			Tofill: o.Size}
-		_, _ = oc.orderService.Update(&tempOrder)
+		_, _ = oc.orderService.Update(o)
 	}
 
-	order.Tofill = orderFromOB.Size
-	order.ID = orderFromOB.ID
-
-	updatedOrder, err := oc.orderService.Update(&order)
-	oc.exchange.OrderBooks[coin].ClearFilled()
+	updatedOrder, err := oc.orderService.Update(order)
+	oc.exchange.OrderBooks[order.Coin].ClearFilled()
 	return updatedOrder, err
 }
 
 func (oc *OrderController) PostOrder(ctx *gin.Context) {
-	var order *model.OrderRequestModel
+	var order *model.Order
 
 	if err := ctx.ShouldBindJSON(&order); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})
 	}
 
-	order.User = *ctx.MustGet("currentUser").(*model.UserDBResponseModel)
-	savedOrder, _ := oc.orderService.Save(order)
+	user := *ctx.MustGet("currentUser").(*model.UserDBResponseModel)
+	order.UserID = user.ID.Hex()
 
-	var wallet *model.Wallet
-	wallet, _ = oc.walletService.FindUserWalletForNetwork(order.User.ID.Hex(), string(order.Coin))
+	// Create a wallet
+	manager := *blockchain.Managers.ByKey[order.Coin]
+	wallet, _ := oc.walletService.FindUserWalletForNetwork(order.UserID, order.Coin)
 	if wallet == nil {
-
-		wallet, _ = oc.walletService.Save(&model.Wallet{
-			User:    order.User.ID.Hex(),
-			Address: string(order.Coin),
-		})
+		wallet = manager.CreateNewWallet()
+		wallet.User = order.UserID
+		wallet.Network = order.Coin
+		wallet.Balance = "0"
+		wallet, _ = oc.walletService.Save(wallet)
 	}
 
+	// Order processing
+	order, _ = oc.orderService.Save(order)
 	ob := oc.exchange.OrderBooks[order.Coin]
-	orderFromOB := model.NewOrder(savedOrder)
 
 	if order.Type == util.OrderTypeLIMIT {
-
-		limit, filledOrders := ob.PlaceLimitOrder(order.Price, orderFromOB)
-		updatedOrder, err := oc.updateFilledOrders(filledOrders, orderFromOB, order.Coin)
+		limit, filledOrders := ob.PlaceLimitOrder(order.Price, order)
+		updatedOrder, err := oc.updateFilledOrders(filledOrders, order)
 
 		ctx.JSON(http.StatusOK, gin.H{"status": "success", "data": gin.H{"order": model.FilteredOrderResponse(updatedOrder), "limitOrder": limit, "filledOrders": filledOrders, "err": err}})
 		return
 	} else if order.Type == util.OrderTypeMARKET {
-
-		filledOrders, filledSize := ob.PlaceMarketOrder(orderFromOB)
-		updatedOrder, err := oc.updateFilledOrders(filledOrders, orderFromOB, order.Coin)
+		filledOrders, filledSize := ob.PlaceMarketOrder(order)
+		updatedOrder, err := oc.updateFilledOrders(filledOrders, order)
 
 		ctx.JSON(http.StatusOK, gin.H{"status": "success", "data": gin.H{"order": model.FilteredOrderResponse(updatedOrder), "filledOrders": filledOrders, "filledSize": filledSize, "err": err}})
 		return
 	}
+
 }
 
 func (oc *OrderController) GetOrderBook(ctx *gin.Context) {
@@ -83,9 +78,9 @@ func (oc *OrderController) GetOrderBook(ctx *gin.Context) {
 
 func (oc *OrderController) GetAllOrders(ctx *gin.Context) {
 	user := *ctx.MustGet("currentUser").(*model.UserDBResponseModel)
-	orders, err := oc.orderService.FindAll(user)
+	orders, err := oc.orderService.FindAll(user.ID.Hex())
 
-	var response []model.OrderResponseModel
+	var response []model.Order
 	for _, order := range orders {
 		response = append(response, model.FilteredOrderResponse(&order))
 	}

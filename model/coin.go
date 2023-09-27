@@ -5,11 +5,18 @@ import (
 	"time"
 )
 
-type CoinSymbol string
+//type CoinSymbol string
 
 const (
-	CoinETH CoinSymbol = "ETH"
+	CoinETH string = "ETH"
 )
+
+type Coin struct {
+	ID        primitive.ObjectID `json:"id" bson:"_id"`
+	Symbol    string             `json:"symbol" bson:"symbol"`
+	Name      string             `json:"name" bson:"name"`
+	CreatedAt time.Time          `json:"createdAt" bson:"createdAt"`
+}
 
 type CoinRequestModel struct {
 	Symbol    string    `json:"symbol" bson:"symbol"`

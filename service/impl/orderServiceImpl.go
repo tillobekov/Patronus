@@ -20,8 +20,8 @@ func NewOrderServiceImpl(collection *mongo.Collection, ctx context.Context) serv
 	return &OrderServiceImpl{collection, ctx}
 }
 
-func (os OrderServiceImpl) Save(order *model.OrderRequestModel) (*model.OrderDBResponseModel, error) {
-	order.Tofill = order.Size
+func (os OrderServiceImpl) Save(order *model.Order) (*model.Order, error) {
+	order.ToFill = order.Size
 	order.Status = util.OrderStatusACTIVE
 	order.CreatedAt = time.Now()
 
@@ -31,7 +31,7 @@ func (os OrderServiceImpl) Save(order *model.OrderRequestModel) (*model.OrderDBR
 		return nil, err
 	}
 
-	var newOrder *model.OrderDBResponseModel
+	var newOrder *model.Order
 	query := bson.M{"_id": res.InsertedID}
 
 	err = os.collection.FindOne(os.ctx, query).Decode(&newOrder)
@@ -40,33 +40,33 @@ func (os OrderServiceImpl) Save(order *model.OrderRequestModel) (*model.OrderDBR
 
 }
 
-func (os OrderServiceImpl) Update(order *model.OrderRequestModel) (*model.OrderDBResponseModel, error) {
-	if order.Tofill == 0.0 {
+func (os OrderServiceImpl) Update(order *model.Order) (*model.Order, error) {
+	if order.ToFill == 0.0 {
 		order.Status = util.OrderStatusFILLED
 	} else {
 		order.Status = util.OrderStatusACTIVE
 	}
-	primitiveID, _ := primitive.ObjectIDFromHex(order.ID)
-	filter := bson.M{"_id": bson.M{"$eq": primitiveID}}
-	update := bson.M{"$set": bson.M{"status": order.Status, "tofill": order.Tofill, "filledAt": time.Now()}}
+	//primitiveID, _ := primitive.ObjectIDFromHex(order.ID.Hex())
+	filter := bson.M{"_id": bson.M{"$eq": order.ID}}
+	update := bson.M{"$set": bson.M{"status": order.Status, "toFill": order.ToFill, "filledAt": time.Now()}}
 
 	_, err := os.collection.UpdateOne(os.ctx, filter, update)
 	if err != nil {
-		return &model.OrderDBResponseModel{}, err
+		return &model.Order{}, err
 	}
 
-	var updatedOrder *model.OrderDBResponseModel
-	query := bson.M{"_id": bson.M{"$eq": primitiveID}}
+	var updatedOrder *model.Order
+	query := bson.M{"_id": bson.M{"$eq": order.ID}}
 	err = os.collection.FindOne(os.ctx, query).Decode(&updatedOrder)
 
 	return updatedOrder, err
 
 }
 
-func (os *OrderServiceImpl) FindAll(user model.UserDBResponseModel) ([]model.OrderDBResponseModel, error) {
-	var orders []model.OrderDBResponseModel
+func (os *OrderServiceImpl) FindAll(userId string) ([]model.Order, error) {
+	var orders []model.Order
 
-	query := bson.M{"user": user}
+	query := bson.M{"userId": userId}
 	cursor, err := os.collection.Find(os.ctx, query)
 
 	if err != nil {
@@ -77,7 +77,7 @@ func (os *OrderServiceImpl) FindAll(user model.UserDBResponseModel) ([]model.Ord
 	return orders, err
 }
 
-func (os OrderServiceImpl) Cancel(id string) (*model.OrderDBResponseModel, error) {
+func (os OrderServiceImpl) Cancel(id string) (*model.Order, error) {
 	primitiveID, _ := primitive.ObjectIDFromHex(id)
 
 	filter := bson.M{"_id": bson.M{"$eq": primitiveID}}
@@ -85,27 +85,27 @@ func (os OrderServiceImpl) Cancel(id string) (*model.OrderDBResponseModel, error
 
 	_, err := os.collection.UpdateOne(os.ctx, filter, update)
 	if err != nil {
-		return &model.OrderDBResponseModel{}, err
+		return &model.Order{}, err
 	}
 
-	var updatedOrder *model.OrderDBResponseModel
+	var updatedOrder *model.Order
 	query := bson.M{"_id": bson.M{"$eq": primitiveID}}
 	err = os.collection.FindOne(os.ctx, query).Decode(&updatedOrder)
 
 	return updatedOrder, err
 }
 
-func (os *OrderServiceImpl) FindOneById(id string) (*model.OrderDBResponseModel, error) {
+func (os *OrderServiceImpl) FindOneById(id string) (*model.Order, error) {
 	oid, _ := primitive.ObjectIDFromHex(id)
 
-	var order *model.OrderDBResponseModel
+	var order *model.Order
 
 	query := bson.M{"_id": oid}
 	err := os.collection.FindOne(os.ctx, query).Decode(&order)
 
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return &model.OrderDBResponseModel{}, err
+			return &model.Order{}, err
 		}
 		return nil, err
 	}

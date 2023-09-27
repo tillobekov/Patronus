@@ -19,9 +19,6 @@ type OrderBook struct {
 	MarketBids []*Order `json:"marketBids" bson:"marketBids"`
 
 	orders map[string]*Order `json:"orders" bson:"orders"`
-
-	//AskLimits map[float64]*Limit
-	//BidLimits map[float64]*Limit
 }
 
 func NewOrderBook() *OrderBook {
@@ -31,8 +28,6 @@ func NewOrderBook() *OrderBook {
 		MarketAsks: []*Order{},
 		MarketBids: []*Order{},
 		orders:     make(map[string]*Order),
-		//AskLimits: make(map[float64]*Limit),
-		//BidLimits: make(map[float64]*Limit),
 	}
 }
 
@@ -40,7 +35,7 @@ func (ob *OrderBook) FindLimitByOrderID(id string, bid bool) *Limit {
 	if bid {
 		for _, limit := range ob.bids {
 			for _, order := range limit.Orders {
-				if order.ID == id {
+				if order.ID.Hex() == id {
 					return limit
 				}
 			}
@@ -48,7 +43,7 @@ func (ob *OrderBook) FindLimitByOrderID(id string, bid bool) *Limit {
 	} else {
 		for _, limit := range ob.asks {
 			for _, order := range limit.Orders {
-				if order.ID == id {
+				if order.ID.Hex() == id {
 					return limit
 				}
 			}
@@ -79,7 +74,6 @@ func (ob *OrderBook) PlaceMarketOrder(o *Order) ([]*Order, float64) {
 	sizeFilled := o.Size
 
 	if o.Bid {
-
 		if ob.AskTotalVolume() == 0.0 {
 			ob.MarketBids = append(ob.MarketBids, o)
 			return nil, 0.0
@@ -95,7 +89,7 @@ func (ob *OrderBook) PlaceMarketOrder(o *Order) ([]*Order, float64) {
 
 			}
 			ob.MarketBids = append(ob.MarketBids, o)
-			return filledOrders, sizeFilled - o.Size
+			return filledOrders, sizeFilled - o.ToFill
 		}
 
 	} else {
@@ -113,23 +107,20 @@ func (ob *OrderBook) PlaceMarketOrder(o *Order) ([]*Order, float64) {
 				}
 			}
 			ob.MarketAsks = append(ob.MarketAsks, o)
-			return filledOrders, sizeFilled - o.Size
+			return filledOrders, sizeFilled - o.ToFill
 		}
 	}
 }
 
 func (ob *OrderBook) PlaceLimitOrder(price float64, o *Order) (*Limit, []*Order) {
 	var filledOrders []*Order
-	//sizeFilled := 0.0
 
 	if o.Bid {
 		filled, _ := ob.fillOrders(ob.MarketAsks, o)
 		filledOrders = append(filledOrders, filled...)
-		//sizeFilled = size
 	} else {
 		filled, _ := ob.fillOrders(ob.MarketBids, o)
 		filledOrders = append(filledOrders, filled...)
-		//sizeFilled = size
 	}
 
 	var limit *Limit
@@ -143,7 +134,7 @@ func (ob *OrderBook) PlaceLimitOrder(price float64, o *Order) (*Limit, []*Order)
 			ob.asks = append(ob.asks, limit)
 		}
 	}
-	ob.orders[o.ID] = o
+	ob.orders[o.ID.Hex()] = o
 	limit.AddOrder(o)
 
 	return limit, filledOrders
@@ -154,19 +145,16 @@ func (ob *OrderBook) fillOrders(orders []*Order, o *Order) ([]*Order, float64) {
 	sizeFilled := 0.0
 
 	for _, order := range orders {
-
 		if order.Size <= o.Size {
-			o.Size -= order.Size
+			o.ToFill -= order.Size
 			sizeFilled += order.Size
-			order.Size = 0.0
+			order.ToFill = 0.0
 		} else {
-			order.Size -= o.Size
+			order.ToFill -= o.Size
 			sizeFilled += o.Size
-			o.Size = 0.0
+			o.ToFill = 0.0
 		}
-
 		filledOrders = append(filledOrders, order)
-
 		if o.IsFilled() {
 			break
 		}
@@ -176,7 +164,6 @@ func (ob *OrderBook) fillOrders(orders []*Order, o *Order) ([]*Order, float64) {
 
 func (ob *OrderBook) clearLimit(bid bool, l *Limit) {
 	if bid {
-		//delete(ob.BidLimits, l.Price)
 		for i := 0; i < len(ob.bids); i++ {
 			if ob.bids[i] == l {
 				ob.bids[i] = ob.bids[len(ob.bids)-1]
@@ -184,7 +171,6 @@ func (ob *OrderBook) clearLimit(bid bool, l *Limit) {
 			}
 		}
 	} else {
-		//delete(ob.AskLimits, l.Price)
 		for i := 0; i < len(ob.asks); i++ {
 			if ob.asks[i] == l {
 				ob.asks[i] = ob.asks[len(ob.asks)-1]

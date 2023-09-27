@@ -6,12 +6,12 @@ import (
 )
 
 type Wallet struct {
-	ID         primitive.ObjectID `json:"id" bson:"_id"`
+	ID         primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	User       string             `json:"user" bson:"user"`
 	Network    string             `json:"network" bson:"network"`
 	Address    string             `json:"address" bson:"address"`
 	PrivateKey string             `json:"privateKey" bson:"privateKey"`
-	Balance    float64            `json:"balance" bson:"balance"`
+	Balance    string             `json:"balance" bson:"balance"`
 	CreatedAt  time.Time          `json:"createdAt" bson:"createdAt"`
 }
 
@@ -39,7 +39,7 @@ type WalletResponseModel struct {
 	Network    string             `json:"network" bson:"network"`
 	Address    string             `json:"address" bson:"address"`
 	PrivateKey string             `json:"privateKey" bson:"privateKey"`
-	Balance    float64            `json:"balance" bson:"balance"`
+	Balance    string             `json:"balance" bson:"balance"`
 	CreatedAt  time.Time          `json:"createdAt" bson:"createdAt"`
 }
 

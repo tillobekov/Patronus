@@ -34,7 +34,7 @@ func (ws WalletServiceImpl) Save(wallet *model.Wallet) (*model.Wallet, error) {
 	// Create a unique index for the address field
 	opt := options.Index()
 	opt.SetUnique(true)
-	index := mongo.IndexModel{Keys: bson.M{"address": 1}, Options: opt}
+	index := mongo.IndexModel{Keys: bson.M{"address": 2}, Options: opt}
 
 	if _, err := ws.collection.Indexes().CreateOne(ws.ctx, index); err != nil {
 		return nil, errors.New("could not create index for wallet")
@@ -51,10 +51,10 @@ func (ws WalletServiceImpl) Save(wallet *model.Wallet) (*model.Wallet, error) {
 	return newWallet, nil
 }
 
-func (ws WalletServiceImpl) FindUserWalletForNetwork(userId string, networkId string) (*model.Wallet, error) {
+func (ws WalletServiceImpl) FindUserWalletForNetwork(userId string, network string) (*model.Wallet, error) {
 	var walletModel *model.Wallet
 
-	query := bson.M{"user": userId, "network": networkId}
+	query := bson.M{"user": userId, "network": network}
 	err := ws.collection.FindOne(ws.ctx, query).Decode(&walletModel)
 
 	if err != nil {
