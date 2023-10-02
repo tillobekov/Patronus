@@ -5,7 +5,7 @@ type OrderStatus string
 const (
 	OrderStatusACTIVE   OrderStatus = "Active"
 	OrderStatusCANCELED OrderStatus = "Canceled"
-	OrderStatusFILLED               = "Filled"
+	OrderStatusFILLED   OrderStatus = "Filled"
 )
 
 type OrderType string
