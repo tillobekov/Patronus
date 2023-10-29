@@ -38,7 +38,8 @@ var (
 	orderService service.OrderService
 	coinService  service.CoinService
 	//limitOrderService service.LimitOrderService
-	walletService service.WalletService
+	walletService      service.WalletService
+	transactionService service.TransactionService
 
 	UserController  controller.UserController
 	AuthController  controller.AuthController
@@ -55,8 +56,9 @@ var (
 	coinCollection  *mongo.Collection
 	//limitOrderCollection *mongo.Collection
 
-	walletCollection *mongo.Collection
-	managerSet       blockchain.ManagerSet
+	transactionCollection *mongo.Collection
+	walletCollection      *mongo.Collection
+	managerSet            blockchain.ManagerSet
 
 	Exchange model.Exchange
 )
@@ -116,9 +118,11 @@ func init() {
 
 	walletCollection = mongoclient.Database(databaseName).Collection("wallets")
 	walletService = impl3.NewWalletServiceImpl(walletCollection, ctx)
+	transactionCollection = mongoclient.Database(databaseName).Collection("transaction")
+	transactionService = impl3.NewTransactionServiceImpl(transactionCollection, ctx)
 	orderCollection = mongoclient.Database(databaseName).Collection("orders")
 	orderService = impl3.NewOrderServiceImpl(orderCollection, ctx)
-	OrderController = controller.NewOrderController(orderService, walletService, Exchange)
+	OrderController = controller.NewOrderController(orderService, walletService, transactionService, Exchange)
 	OrderRouteController = routes.NewRouteOrderController(OrderController)
 
 	coinCollection = mongoclient.Database(databaseName).Collection("coins")

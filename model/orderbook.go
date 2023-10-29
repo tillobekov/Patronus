@@ -69,58 +69,64 @@ func (ob *OrderBook) FindLimitByPrice(price float64, bid bool) *Limit {
 	return nil
 }
 
-func (ob *OrderBook) PlaceMarketOrder(o *Order) ([]*Order, float64) {
+func (ob *OrderBook) PlaceMarketOrder(o *Order) ([]*Order, []*Transaction, float64) {
 	var filledOrders []*Order
+	var transactions []*Transaction
 	sizeFilled := o.Size
 
 	if o.Bid {
 		if ob.AskTotalVolume() == 0.0 {
 			ob.MarketBids = append(ob.MarketBids, o)
-			return nil, 0.0
+			return nil, nil, 0.0
 		} else {
 			for _, limit := range ob.Asks() {
-				filled, size := ob.fillOrders(limit.Orders, o)
+				filled, txs, size := ob.fillOrders(limit.Orders, o)
 				filledOrders = append(filledOrders, filled...)
+				transactions = append(transactions, txs...)
 				limit.TotalVolume -= size
 
 				if o.IsFilled() {
-					return filledOrders, sizeFilled
+					return filledOrders, transactions, sizeFilled
 				}
 
 			}
 			ob.MarketBids = append(ob.MarketBids, o)
-			return filledOrders, sizeFilled - o.ToFill
+			return filledOrders, transactions, sizeFilled - o.ToFill
 		}
 
 	} else {
 		if ob.BidTotalVolume() == 0.0 {
 			ob.MarketAsks = append(ob.MarketAsks, o)
-			return nil, 0.0
+			return nil, nil, 0.0
 		} else {
 			for _, limit := range ob.Bids() {
-				filled, size := ob.fillOrders(limit.Orders, o)
+				filled, txs, size := ob.fillOrders(limit.Orders, o)
 				filledOrders = append(filledOrders, filled...)
+				transactions = append(transactions, txs...)
 				limit.TotalVolume -= size
 
 				if o.IsFilled() {
-					return filledOrders, sizeFilled
+					return filledOrders, transactions, sizeFilled
 				}
 			}
 			ob.MarketAsks = append(ob.MarketAsks, o)
-			return filledOrders, sizeFilled - o.ToFill
+			return filledOrders, transactions, sizeFilled - o.ToFill
 		}
 	}
 }
 
-func (ob *OrderBook) PlaceLimitOrder(price float64, o *Order) (*Limit, []*Order) {
+func (ob *OrderBook) PlaceLimitOrder(price float64, o *Order) (*Limit, []*Order, []*Transaction) {
 	var filledOrders []*Order
+	var transactions []*Transaction
 
 	if o.Bid {
-		filled, _ := ob.fillOrders(ob.MarketAsks, o)
+		filled, txs, _ := ob.fillOrders(ob.MarketAsks, o)
 		filledOrders = append(filledOrders, filled...)
+		transactions = append(transactions, txs...)
 	} else {
-		filled, _ := ob.fillOrders(ob.MarketBids, o)
+		filled, txs, _ := ob.fillOrders(ob.MarketBids, o)
 		filledOrders = append(filledOrders, filled...)
+		transactions = append(transactions, txs...)
 	}
 
 	var limit *Limit
@@ -137,29 +143,49 @@ func (ob *OrderBook) PlaceLimitOrder(price float64, o *Order) (*Limit, []*Order)
 	ob.orders[o.ID.Hex()] = o
 	limit.AddOrder(o)
 
-	return limit, filledOrders
+	return limit, filledOrders, transactions
 }
 
-func (ob *OrderBook) fillOrders(orders []*Order, o *Order) ([]*Order, float64) {
+func (ob *OrderBook) fillOrders(orders []*Order, o *Order) ([]*Order, []*Transaction, float64) {
 	var filledOrders []*Order
+	var transactions []*Transaction
 	sizeFilled := 0.0
 
+	tx := Transaction{
+		Coin:      o.Coin,
+		Confirmed: false,
+	}
+
 	for _, order := range orders {
-		if order.Size <= o.Size {
-			o.ToFill -= order.Size
-			sizeFilled += order.Size
-			order.ToFill = 0.0
-		} else {
-			order.ToFill -= o.Size
-			sizeFilled += o.Size
-			o.ToFill = 0.0
-		}
-		filledOrders = append(filledOrders, order)
-		if o.IsFilled() {
-			break
+		if order.UserID != o.UserID {
+			if order.Size <= o.Size {
+				o.ToFill -= order.Size
+				sizeFilled += order.Size
+				order.ToFill = 0.0
+				tx.Value = order.Size
+			} else {
+				order.ToFill -= o.Size
+				sizeFilled += o.Size
+				o.ToFill = 0.0
+				tx.Value = o.Size
+			}
+
+			if o.Bid {
+				tx.SenderID = o.UserID
+				tx.ReceiverID = order.UserID
+			} else {
+				tx.SenderID = order.UserID
+				tx.ReceiverID = o.UserID
+			}
+
+			filledOrders = append(filledOrders, order)
+			transactions = append(transactions, &tx)
+			if o.IsFilled() {
+				break
+			}
 		}
 	}
-	return filledOrders, sizeFilled
+	return filledOrders, transactions, sizeFilled
 }
 
 func (ob *OrderBook) clearLimit(bid bool, l *Limit) {
