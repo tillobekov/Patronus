@@ -157,33 +157,33 @@ func (ob *OrderBook) fillOrders(orders []*Order, o *Order) ([]*Order, []*Transac
 	}
 
 	for _, order := range orders {
-		if order.UserID != o.UserID {
-			if order.Size <= o.Size {
-				o.ToFill -= order.Size
-				sizeFilled += order.Size
-				order.ToFill = 0.0
-				tx.Value = order.Size
-			} else {
-				order.ToFill -= o.Size
-				sizeFilled += o.Size
-				o.ToFill = 0.0
-				tx.Value = o.Size
-			}
-
-			if o.Bid {
-				tx.SenderID = o.UserID
-				tx.ReceiverID = order.UserID
-			} else {
-				tx.SenderID = order.UserID
-				tx.ReceiverID = o.UserID
-			}
-
-			filledOrders = append(filledOrders, order)
-			transactions = append(transactions, &tx)
-			if o.IsFilled() {
-				break
-			}
+		//if order.UserID != o.UserID {
+		if order.ToFill <= o.ToFill {
+			o.ToFill -= order.ToFill
+			sizeFilled += order.ToFill
+			tx.Value = order.ToFill
+			order.ToFill = 0.0
+		} else {
+			order.ToFill -= o.ToFill
+			sizeFilled += o.ToFill
+			tx.Value = o.ToFill
+			o.ToFill = 0.0
 		}
+
+		if o.Bid {
+			tx.SenderID = o.UserID
+			tx.ReceiverID = order.UserID
+		} else {
+			tx.SenderID = order.UserID
+			tx.ReceiverID = o.UserID
+		}
+
+		filledOrders = append(filledOrders, order)
+		transactions = append(transactions, &tx)
+		if o.IsFilled() {
+			break
+		}
+		//}
 	}
 	return filledOrders, transactions, sizeFilled
 }
@@ -212,7 +212,7 @@ func (ob *OrderBook) ClearFilled() {
 			ob.clearLimit(true, l)
 		} else {
 			for _, o := range l.Orders {
-				if o.Size == 0.0 {
+				if o.ToFill == 0.0 {
 					l.DeleteOrder(o)
 				}
 			}
@@ -223,26 +223,26 @@ func (ob *OrderBook) ClearFilled() {
 			ob.clearLimit(false, l)
 		} else {
 			for _, o := range l.Orders {
-				if o.Size == 0.0 {
+				if o.ToFill == 0.0 {
 					l.DeleteOrder(o)
 				}
 			}
 		}
 	}
 	for i := 0; i < len(ob.MarketBids); i++ {
-		if ob.MarketBids[i].Size == 0.0 {
+		if ob.MarketBids[i].ToFill == 0.0 {
 			ob.MarketBids[i] = ob.MarketBids[len(ob.MarketBids)-1]
 			ob.MarketBids = ob.MarketBids[:len(ob.MarketBids)-1]
 		}
 	}
 	for i := 0; i < len(ob.MarketAsks); i++ {
-		if ob.MarketAsks[i].Size == 0.0 {
+		if ob.MarketAsks[i].ToFill == 0.0 {
 			ob.MarketAsks[i] = ob.MarketAsks[len(ob.MarketAsks)-1]
 			ob.MarketAsks = ob.MarketAsks[:len(ob.MarketAsks)-1]
 		}
 	}
 	for id, order := range ob.orders {
-		if order.Size == 0.0 {
+		if order.ToFill == 0.0 {
 			delete(ob.orders, id)
 		}
 	}

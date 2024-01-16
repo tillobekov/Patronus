@@ -118,7 +118,7 @@ func init() {
 
 	walletCollection = mongoclient.Database(databaseName).Collection("wallets")
 	walletService = impl3.NewWalletServiceImpl(walletCollection, ctx)
-	transactionCollection = mongoclient.Database(databaseName).Collection("transaction")
+	transactionCollection = mongoclient.Database(databaseName).Collection("transactions")
 	transactionService = impl3.NewTransactionServiceImpl(transactionCollection, ctx)
 	orderCollection = mongoclient.Database(databaseName).Collection("orders")
 	orderService = impl3.NewOrderServiceImpl(orderCollection, ctx)
